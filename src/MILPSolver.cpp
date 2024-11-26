@@ -1,6 +1,6 @@
 #include "MILPSolver.hpp"
 
-MILPSolver::MILPSolver(Instance *I) : Solver(I, "MILPSolver"), _env(), _model(_env), _cplex(_model), _x(_env), _u(_env)
+MILPSolver::MILPSolver(Instance *I) : Solver(I, "MILPSolver"), _env(), _model(_env), _cplex(_model), _x(_env), _u(_env), _technique(_subtourEliminationTechnique)
 {
     _x = IloArray<IloNumVarArray>(_env, _I->nnodes());
     for (int i = 0; i < _I->nnodes(); i++)
@@ -43,7 +43,27 @@ MILPSolver::MILPSolver(Instance *I) : Solver(I, "MILPSolver"), _env(), _model(_e
         exprout.end();
     }
 
-    // Subtour elimination constraints
+    //* Subtour elimination constraints techniques
+    switch (_technique)
+    {
+    case MTZ:
+        addMTZConstraints();
+        break;
+    case GAVISH_GRAVES:
+        addGavishGravesConstraints();
+        break;
+    case DFJ:
+        addDFJConstraints();
+        break;
+    default:
+        break;
+    }
+
+    _cplex.exportModel("Model.lp");
+}
+
+void MILPSolver::addMTZConstraints()
+{
     for (int i = 1; i < _I->nnodes(); i++)
     {
         for (int j = 1; j < _I->nnodes(); j++)
@@ -54,8 +74,16 @@ MILPSolver::MILPSolver(Instance *I) : Solver(I, "MILPSolver"), _env(), _model(_e
             }
         }
     }
+}
 
-    _cplex.exportModel("Model.lp");
+void MILPSolver::addGavishGravesConstraints()
+{
+    // TODO: Add Gavish-Graves constraints
+}
+
+void MILPSolver::addDFJConstraints()
+{
+    // TODO: Add DFJ constraints
 }
 
 MILPSolver::~MILPSolver()
@@ -63,7 +91,7 @@ MILPSolver::~MILPSolver()
     _env.end();
 }
 
-void MILPSolver::solvemethod(Solution *S)
+void MILPSolver::solveMethod(Solution *S)
 {
     _cplex.setParam(IloCplex::Param::TimeLimit, _timlim);
     _cplex.setParam(IloCplex::Param::Threads, _threads);

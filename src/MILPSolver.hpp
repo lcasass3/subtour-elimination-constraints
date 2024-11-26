@@ -1,5 +1,11 @@
 #include "Solver.hpp"
 
+enum SubtourEliminationTechnique
+{
+    MTZ,
+    GAVISH_GRAVES,
+    DFJ
+};
 class MILPSolver : public Solver
 {
 
@@ -8,11 +14,15 @@ class MILPSolver : public Solver
     IloCplex _cplex;
     IloArray<IloNumVarArray> _x;
     IloNumVarArray _u;
+    SubtourEliminationTechnique _subtourEliminationTechnique;
 
-    void solvemethod(Solution *S);
+    void solveMethod(Solution *S);
+    void addMTZConstraints();
+    void addGavishGravesConstraints();
+    void addDFJConstraints();
 
 public:
-    MILPSolver(Instance *I);
+    MILPSolver(Instance *I, SubtourEliminationTechnique subtourEliminationTechnique);
     ~MILPSolver();
 
     double gap() { return _cplex.getMIPRelativeGap(); };
