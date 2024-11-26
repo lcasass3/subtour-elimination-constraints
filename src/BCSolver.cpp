@@ -1,6 +1,6 @@
 #include "BCSolver.hpp"
 
-BCSolver::BCSolver(Instance *I, SubtourEliminationTechnique technique) : Solver(I, "BCSolver"), _technique(technique)
+BCSolver::BCSolver(Instance *I, SubtourEliminationTechnique technique) : Solver(I, "BCSolver"), _subtourEliminationTechnique(technique), _env(), _model(_env), _cplex(_model), _x(_env)
 {
 
     // We get the undirected edges
@@ -74,7 +74,7 @@ void BCSolver::solveMethod(Solution *S)
     _cplex.setParam(IloCplex::Param::MIP::Tolerances::MIPGap, _mingap);
 
     // We set the callback
-    MyCallBack cb(_I, _x, &_edges);
+    MyCallBack cb(_I, _x, &_edges, _subtourEliminationTechnique);
     _cplex.use(&cb, IloCplex::Callback::Context::Id::Candidate | IloCplex::Callback::Context::Id::Relaxation);
 
     // We solve the model
@@ -131,12 +131,12 @@ Solution *BCSolver::recoversolution()
 void MyCallBack::addMTZConstraints(const IloCplex::Callback::Context &context)
 {
     IloEnv env = context.getEnv();
-    IloModel model = context.getModel();
+    IloModel model(env);
     IloNumVarArray u(env, _I->nnodes(), 2, _I->nnodes(), ILOFLOAT);
 
     for (int i = 1; i < _I->nnodes(); i++)
     {
-        for (int j = 1; j < _I->nnodes(); j++)
+        for (int j = 1; i < _I->nnodes(); j++)
         {
             if (i != j)
             {
@@ -149,7 +149,7 @@ void MyCallBack::addMTZConstraints(const IloCplex::Callback::Context &context)
 void MyCallBack::addGavishGravesConstraints(const IloCplex::Callback::Context &context)
 {
     IloEnv env = context.getEnv();
-    IloModel model = context.getModel();
+    IloModel model(env);
     IloNumVarArray f(env, _I->nnodes() * _I->nnodes(), 0, IloInfinity, ILOFLOAT);
 
     for (int i = 1; i < _I->nnodes(); i++)
