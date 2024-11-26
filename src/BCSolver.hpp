@@ -49,6 +49,10 @@ class MyCallBack : public IloCplex::Callback::Function
     vector<edge> *_edges;
     SubtourEliminationTechnique _subtourEliminationTechnique;
 
+    void addMTZConstraints(const IloCplex::Callback::Context &context);
+    void addGavishGravesConstraints(const IloCplex::Callback::Context &context);
+    void addDFJConstraints(const IloCplex::Callback::Context &context);
+
     void addLazyCuts(const IloCplex::Callback::Context &context);
 
     void searchHeuristicSolution(const IloCplex::Callback::Context &context);
