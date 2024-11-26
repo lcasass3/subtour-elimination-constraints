@@ -6,12 +6,34 @@ int main(int argc, const char *argv[])
 {
     string filename;
     int timlim = 600;
+    SubtourEliminationTechnique technique = SubtourEliminationTechnique::MTZ;
     if (argc > 1)
     {
         filename = argv[1];
         if (argc > 2)
         {
             timlim = atoi(argv[2]);
+        }
+        if (argc > 3)
+        {
+            string techinqueString = argv[3];
+            if (techinqueString == "MTZ")
+            {
+                technique = SubtourEliminationTechnique::MTZ;
+            }
+            else if (techinqueString == "GAVISH_GRAVES")
+            {
+                technique = SubtourEliminationTechnique::GAVISH_GRAVES;
+            }
+            else if (techinqueString == "DFJ")
+            {
+                technique = SubtourEliminationTechnique::DFJ;
+            }
+            else
+            {
+                cout << "Invalid subtour elimination technique" << endl;
+                return 0;
+            }
         }
     }
     else
@@ -32,7 +54,11 @@ int main(int argc, const char *argv[])
         return 1;
     }
 
-    Solver *S = new BCSolver(I);
+    // MILP Solver
+    // Solver *S = new MILPSolver(I, technique);
+
+    // BC Solver
+    Solver *S = new BCSolver(I, technique);
 
     S->setparam(Solver::TimLim, timlim);
 

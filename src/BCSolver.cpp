@@ -130,12 +130,57 @@ Solution *BCSolver::recoversolution()
 
 void MyCallBack::addMTZConstraints(const IloCplex::Callback::Context &context)
 {
-    // TODO: MTZ constraints implementation
+    IloEnv env = context.getEnv();
+    IloModel model = context.getModel();
+    IloNumVarArray u(env, _I->nnodes(), 2, _I->nnodes(), ILOFLOAT);
+
+    for (int i = 1; i < _I->nnodes(); i++)
+    {
+        for (int j = 1; j < _I->nnodes(); j++)
+        {
+            if (i != j)
+            {
+                model.add(u[i] - u[j] + 1 <= (_I->nnodes() - 1) * (1 - _x[getEdgeId(i, j)]));
+            }
+        }
+    }
 }
 
 void MyCallBack::addGavishGravesConstraints(const IloCplex::Callback::Context &context)
 {
-    // TODO: Gavish-Graves constraints implementation...
+    IloEnv env = context.getEnv();
+    IloModel model = context.getModel();
+    IloNumVarArray f(env, _I->nnodes() * _I->nnodes(), 0, IloInfinity, ILOFLOAT);
+
+    for (int i = 1; i < _I->nnodes(); i++)
+    {
+        IloExpr inflow(env);
+        IloExpr outflow(env);
+        for (int j = 0; j < _I->nnodes(); j++)
+        {
+            if (i != j)
+            {
+                inflow += f[i * _I->nnodes() + j];
+                outflow += f[j * _I->nnodes() + i];
+            }
+        }
+        model.add(inflow - outflow == 1);
+        inflow.end();
+        outflow.end();
+    }
+
+    for (int i = 0; i < _I->nnodes(); i++)
+    {
+        for (int j = 0; j < _I->nnodes(); j++)
+        {
+            if (i != j)
+            {
+                model.add(f[i * _I->nnodes() + j] <= (_I->nnodes() - 1) * _x[getEdgeId(i, j)]);
+            }
+        }
+    }
+
+    f.end();
 }
 
 void MyCallBack::addDFJConstraints(const IloCplex::Callback::Context &context)

@@ -78,12 +78,123 @@ void MILPSolver::addMTZConstraints()
 
 void MILPSolver::addGavishGravesConstraints()
 {
-    // TODO: Add Gavish-Graves constraints
+    IloEnv env = _env;
+    IloNumVarArray f(env, _I->nnodes() * _I->nnodes(), 0, IloInfinity, ILOFLOAT);
+
+    for (int i = 1; i < _I->nnodes(); i++)
+    {
+        IloExpr inflow(env);
+        IloExpr outflow(env);
+        for (int j = 0; j < _I->nnodes(); j++)
+        {
+            if (i != j)
+            {
+                inflow += f[i * _I->nnodes() + j];
+                outflow += f[j * _I->nnodes() + i];
+            }
+        }
+        _model.add(inflow - outflow == 1);
+        inflow.end();
+        outflow.end();
+    }
+
+    for (int i = 0; i < _I->nnodes(); i++)
+    {
+        for (int j = 0; j < _I->nnodes(); j++)
+        {
+            if (i != j)
+            {
+                _model.add(f[i * _I->nnodes() + j] <= (_I->nnodes() - 1) * _x[i][j]);
+            }
+        }
+    }
+
+    f.end();
 }
 
 void MILPSolver::addDFJConstraints()
 {
-    // TODO: Add DFJ constraints
+    IloEnv env = _env;
+    IloNumArray Val(env);
+
+    vector<int> rank(_I->nnodes(), -1);
+
+    // We init the ranks
+    for (int i = 0; i < _I->nnodes(); i++)
+    {
+        rank[i] = -(i + 1);
+    }
+
+    // We propagate the ranks
+    auto it = find_if(rank.begin(), rank.end(), [](int r)
+                      { return r < 0; });
+    while (it != rank.end())
+    {
+        int i = std::distance(rank.begin(), it);
+        int ri = fabs(rank[i]);
+        rank[i] = ri;
+        for (int j = 0; j < _I->nnodes(); j++)
+        {
+            if (i != j)
+            {
+                int k = getEdgeId(i, j);
+                if (Val[k] > 0.5)
+                {
+                    int rj = fabs(rank[j]);
+                    if (rj > ri)
+                    {
+                        rank[j] = -ri;
+                    }
+                }
+            }
+        }
+        it = find_if(rank.begin(), rank.end(), [](int r)
+                     { return r < 0; });
+    }
+
+    // We get the unique ranks
+    unordered_set<int> uniqueRanks;
+    for (auto r : rank)
+        uniqueRanks.insert(r);
+
+    if (uniqueRanks.size() == 1)
+        return;
+
+    // We get the subtours for each rank
+    IloRangeArray Cuts(env);
+    for (auto r : uniqueRanks)
+    {
+        // We add a subtour elimination constraint
+        IloExpr expr(env);
+        int size = 0;
+        for (int i = 0; i < _I->nnodes(); i++)
+        {
+            if (rank[i] == r)
+            {
+                size++;
+                for (int j = i + 1; j < _I->nnodes(); j++)
+                {
+                    if (rank[j] == r)
+                    {
+                        int k = getEdgeId(i, j);
+                        expr += _x[i][j];
+                    }
+                }
+            }
+        }
+        Cuts.add(expr <= size - 1);
+        expr.end();
+    }
+
+    // We add the constraints
+    if (Cuts.getSize() > 0)
+    {
+        cout << "Adding " << Cuts.getSize() << " subtour elimination constraints" << endl;
+        _model.add(Cuts);
+    }
+    Cuts.end();
+
+    Val.end();
 }
 
 MILPSolver::~MILPSolver()
