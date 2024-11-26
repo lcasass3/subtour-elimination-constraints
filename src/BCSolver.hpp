@@ -12,6 +12,13 @@ struct edge
     double w;
 };
 
+enum SubtourEliminationTechnique
+{
+    MTZ,
+    GAVISH_GRAVES,
+    DFJ
+};
+
 class BCSolver : public Solver
 {
 
@@ -19,13 +26,13 @@ class BCSolver : public Solver
     IloModel _model;
     IloCplex _cplex;
     IloBoolVarArray _x;
-
     vector<edge> _edges;
+    SubtourEliminationTechnique _subtourEliminationTechnique;
 
     void solveMethod(Solution *S);
 
 public:
-    BCSolver(Instance *I);
+    BCSolver(Instance *I, SubtourEliminationTechnique subtourEliminationTechnique);
 
     ~BCSolver() { _env.end(); };
 
@@ -40,6 +47,7 @@ class MyCallBack : public IloCplex::Callback::Function
     Instance *_I;
     IloBoolVarArray _x;
     vector<edge> *_edges;
+    SubtourEliminationTechnique _subtourEliminationTechnique;
 
     void addLazyCuts(const IloCplex::Callback::Context &context);
 
@@ -50,8 +58,8 @@ class MyCallBack : public IloCplex::Callback::Function
     int getEdgeId(int i, int j);
 
 public:
-    MyCallBack(Instance *I, IloBoolVarArray &x, vector<edge> *E)
-        : _I(I), _x(x), _edges(E) {}
+    MyCallBack(Instance *I, IloBoolVarArray &x, vector<edge> *E, SubtourEliminationTechnique technique)
+        : _I(I), _x(x), _edges(E), _subtourEliminationTechnique(technique) {}
 
     // The main callback function
     void invoke(const IloCplex::Callback::Context &context);

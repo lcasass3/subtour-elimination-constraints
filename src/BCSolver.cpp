@@ -1,6 +1,6 @@
 #include "BCSolver.hpp"
 
-BCSolver::BCSolver(Instance *I) : Solver(I, "BCSolver")
+BCSolver::BCSolver(Instance *I, SubtourEliminationTechnique technique) : Solver(I, "BCSolver"), _technique(technique)
 {
 
     // We get the undirected edges
@@ -128,13 +128,19 @@ Solution *BCSolver::recoversolution()
     return S;
 }
 
-void MyCallBack::addLazyCuts(const IloCplex::Callback::Context &context)
+void MyCallBack::addMTZConstraints(const IloCplex::Callback::Context &context)
 {
-    if (!context.inCandidate())
-        return;
+    // TODO: MTZ constraints implementation
+}
 
+void MyCallBack::addGavishGravesConstraints(const IloCplex::Callback::Context &context)
+{
+    // TODO: Gavish-Graves constraints implementation...
+}
+
+void MyCallBack::addDFJConstraints(const IloCplex::Callback::Context &context)
+{
     IloEnv env = context.getEnv();
-
     IloNumArray Val(env);
     context.getCandidatePoint(_x, Val);
 
@@ -148,7 +154,6 @@ void MyCallBack::addLazyCuts(const IloCplex::Callback::Context &context)
     }
 
     // We propagate the ranks
-
     auto it = find_if(rank.begin(), rank.end(), [](int r)
                       { return r < 0; });
     while (it != rank.end())
@@ -157,6 +162,7 @@ void MyCallBack::addLazyCuts(const IloCplex::Callback::Context &context)
         int ri = fabs(rank[i]);
         rank[i] = ri;
         for (int j = 0; j < _I->nnodes(); j++)
+        {
             if (i != j)
             {
                 int k = getEdgeId(i, j);
@@ -169,6 +175,7 @@ void MyCallBack::addLazyCuts(const IloCplex::Callback::Context &context)
                     }
                 }
             }
+        }
         it = find_if(rank.begin(), rank.end(), [](int r)
                      { return r < 0; });
     }
@@ -185,21 +192,24 @@ void MyCallBack::addLazyCuts(const IloCplex::Callback::Context &context)
     IloRangeArray Cuts(env);
     for (auto r : uniqueRanks)
     {
-
         // We add a subtour elimination constraint
         IloExpr expr(env);
         int size = 0;
         for (int i = 0; i < _I->nnodes(); i++)
+        {
             if (rank[i] == r)
             {
                 size++;
                 for (int j = i + 1; j < _I->nnodes(); j++)
+                {
                     if (rank[j] == r)
                     {
                         int k = getEdgeId(i, j);
                         expr += _x[k];
                     }
+                }
             }
+        }
         Cuts.add(expr <= size - 1);
         expr.end();
     }
@@ -213,6 +223,27 @@ void MyCallBack::addLazyCuts(const IloCplex::Callback::Context &context)
     Cuts.end();
 
     Val.end();
+}
+
+void MyCallBack::addLazyCuts(const IloCplex::Callback::Context &context)
+{
+    if (!context.inCandidate())
+        return;
+
+    switch (_subtourEliminationTechnique)
+    {
+    case MTZ:
+        addMTZConstraints(context);
+        break;
+    case GAVISH_GRAVES:
+        addGavishGravesConstraints(context);
+        break;
+    case DFJ:
+        addDFJConstraints(context);
+        break;
+    default:
+        break;
+    }
 }
 
 void MyCallBack::searchHeuristicSolution(const IloCplex::Callback::Context &context)
